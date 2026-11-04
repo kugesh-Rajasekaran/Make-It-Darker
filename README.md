@@ -21,6 +21,32 @@ It is not in a store yet, so load it from source:
 
 To update, run `git pull` (or download again), then click the reload arrow on the extension's card. Keep the folder where it is: the browser identifies an unpacked extension by its path, so moving the folder resets your saved site choices.
 
+### Set it up with an AI coding agent
+
+Paste this into Claude Code, Codex, Cursor or a similar agent. It installs the dependencies, runs the tests, and tells you where the extension folder is. Loading the folder into the browser is the one step you do yourself.
+
+```text
+Set up the Make It Darker browser extension from
+https://github.com/kugesh-Rajasekaran/Make-It-Darker so I can use and test it.
+
+1. If the current folder is not already a clone of that repo, clone it and work inside the clone.
+2. Check `node -v`. It must be 20.11 or newer. If Node is missing or older, stop and
+   tell me how to install it; do not change my system Node yourself.
+3. Run `npm install`.
+4. Run `npx playwright install chromium`. The tests need Playwright's Chromium;
+   branded Google Chrome will not load an extension from the command line.
+5. Run `npm test` and confirm every test passes. If any fail, show me the failing
+   test names and errors; do not edit code to make them pass.
+6. Do not run `npm run e2e` unless I ask. It opens live Google Sheets and LinkedIn
+   pages, and LinkedIn rate-limits repeated runs.
+7. Do not modify, commit or push any files.
+
+When you are done, tell me the Node version, how many tests passed, and the absolute
+path of the `extension/` folder, with these steps to load it: open chrome://extensions
+(edge://extensions in Edge), turn on Developer mode, click Load unpacked, and choose
+that folder.
+```
+
 ## Use
 
 Click the moon icon in the toolbar.
