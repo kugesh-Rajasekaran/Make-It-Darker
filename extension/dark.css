@@ -1,0 +1,54 @@
+/*
+ * Every rule is gated on the attribute content.js sets on <html>, so nothing
+ * changes until the script decides the page should be dark.
+ *
+ * The page filter inverts, rotates hues back so colours keep their identity,
+ * then softens: white becomes #131313 and black becomes #ececec.
+ *
+ * These are plain CSS filter functions on purpose. An exact hue-preserving SVG
+ * filter (url(#...)) keeps photo colours perfect, but Chromium paints SVG
+ * reference filters on <html> through a slower path that left Google Sheets'
+ * menu bar and toolbar blank until the next repaint. Visible controls matter
+ * more than perfect photo saturation.
+ */
+html[data-dia-dark] {
+  filter: invert(1) hue-rotate(180deg) contrast(0.85) !important;
+}
+
+/*
+ * Media must look like media, so apply the inverse; the two cancel (very
+ * saturated colours lose a little saturation). Anything inside an inline
+ * background image is already restored by its parent.
+ *
+ * Images with see-through areas are left inverted with the page: they sit on
+ * the page's own background, which is inverted, so restoring them would put a
+ * black icon on a black page. SVG images are assumed to be like that;
+ * content.js measures the others and marks them data-dia-dark-glyph.
+ */
+html[data-dia-dark]
+  :is(
+    img:not([src*=".svg" i], [src^="data:image/svg" i], [data-dia-dark-glyph]),
+    video,
+    iframe,
+    embed,
+    object,
+    [style*="url(" i]
+  ):not([style*="url(" i] *) {
+  filter: contrast(1.1765) hue-rotate(180deg) invert(1) !important;
+}
+
+/* Modal dialogs and popovers render in the top layer, outside the <html> filter. */
+html[data-dia-dark] :is(dialog:modal, :popover-open) {
+  filter: invert(1) hue-rotate(180deg) contrast(0.85) !important;
+}
+
+/*
+ * When neither <html> nor <body> paints a background, the page shows the
+ * browser's white canvas, which the filter cannot reach: dark text would turn
+ * light on white. content.js sets data-dia-dark-bg only in that case, and the
+ * white base it adds inverts to dark. !important because some sites (LinkedIn)
+ * set html { background: transparent } explicitly.
+ */
+html[data-dia-dark][data-dia-dark-bg] {
+  background-color: #fff !important;
+}
