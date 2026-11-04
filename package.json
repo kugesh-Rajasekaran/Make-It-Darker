@@ -1,14 +1,15 @@
 {
-  "name": "dia-dark-mode",
+  "name": "make-it-darker",
   "version": "0.1.0",
   "private": true,
-  "description": "Dark mode for every website in the Dia browser",
+  "description": "Dark mode for every website, in Dia and any Chromium browser, that never hides a button or a line of text",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "e2e": "node test/live/e2e.mjs",
-    "icons": "python3 scripts/make-icons.py"
+    "icons": "python3 scripts/make-icons.py",
+    "package": "cd extension && zip -qr ../make-it-darker.zip . -x '.*'"
   },
   "devDependencies": {
     "playwright": "1.62.1",
