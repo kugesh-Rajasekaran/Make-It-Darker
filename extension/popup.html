@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Make It Darker</title>
   <style>
     :root {
@@ -60,6 +61,17 @@
     .modes button:focus-visible { outline: 2px solid var(--accent); }
     .status { margin-top: 10px; color: var(--muted); }
     [hidden] { display: none; }
+
+    /* iPhone and iPad: Safari shows the popup as a sheet, so fill its width and use touch-sized targets. */
+    @media (pointer: coarse) {
+      body { width: auto; min-width: 280px; font-size: 16px; }
+      header, section { padding: 16px 20px; }
+      h1 { font-size: 17px; }
+      .switch { width: 51px; height: 31px; }
+      .switch span::after { top: 2px; left: 2px; width: 27px; height: 27px; }
+      .switch input:checked + span::after { transform: translateX(20px); }
+      .modes button { padding: 12px 0; }
+    }
   </style>
 </head>
 <body>
@@ -82,7 +94,7 @@
   </section>
 
   <section id="unavailable" hidden>
-    <p class="status">Not running on this page. Reload it, or it's a browser page that extensions can't change.</p>
+    <p class="status">Not running on this page. Reload it, or check that Make It Darker is allowed on this site. Browser pages can't be changed by extensions.</p>
   </section>
 
   <script type="module" src="popup.js"></script>

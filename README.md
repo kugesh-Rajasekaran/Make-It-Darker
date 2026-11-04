@@ -1,6 +1,6 @@
 # Make It Darker
 
-Dark mode for every website, in [Dia](https://www.diabrowser.com) and any Chromium browser, without hiding a single button or line of text.
+Dark mode for every website, in [Dia](https://www.diabrowser.com), any Chromium browser, and Safari on iPhone, iPad and Mac, without hiding a single button or line of text.
 
 ## Principles
 
@@ -11,7 +11,9 @@ Dark mode for every website, in [Dia](https://www.diabrowser.com) and any Chromi
 
 ## Install
 
-It is not in a store yet, so load it from source:
+It is not in a store yet, so load it from source.
+
+### Dia, Chrome, Edge, Brave, Arc and Vivaldi
 
 1. Get the code: `git clone https://github.com/kugesh-Rajasekaran/Make-It-Darker.git`, or use **Code → Download ZIP** and unzip it.
 2. Open `chrome://extensions` (Dia, Chrome, Brave, Arc, Vivaldi) or `edge://extensions` (Edge).
@@ -20,6 +22,31 @@ It is not in a store yet, so load it from source:
 5. Reload any tabs that were already open.
 
 To update, run `git pull` (or download again), then click the reload arrow on the extension's card. Keep the folder where it is: the browser identifies an unpacked extension by its path, so moving the folder resets your saved site choices.
+
+### Safari on iPhone and iPad
+
+Safari only installs extensions that come inside an app, so the `extension/` folder gets wrapped in a small app that Xcode builds. You need a Mac with Xcode and an Apple ID.
+
+1. Get the code as above, then run `sh scripts/make-safari.sh` (or `npm run safari`). It creates an Xcode project in `safari/`, which is not committed, and opens it. The project points at `extension/` rather than copying it, so edits there show up on the next build.
+2. In Xcode, select the project, then the **Signing & Capabilities** tab. Set **Team** to your Apple ID for the iOS app target and the iOS extension target.
+3. Connect your iPhone, choose the **Make It Darker (iOS)** scheme and your iPhone as the destination, and click **Run**. The first time, iOS asks you to turn on **Settings → Privacy & Security → Developer Mode**. If it then says the developer is not trusted, allow it under **Settings → General → VPN & Device Management**.
+4. On the iPhone, open **Settings → Apps → Safari → Extensions** (**Settings → Safari → Extensions** before iOS 18), turn on **Make It Darker**, and set **All Websites** to **Allow**. Otherwise Safari asks on every site.
+5. Reload any open tabs. The switch and the **Auto / Dark / Original** buttons are under **Make It Darker** in Safari's extensions menu, which you open from the address bar.
+
+The bundle ID defaults to `com.<your Mac username>.MakeItDarker`. If Xcode says it is not available, run the script again with `BUNDLE_ID=com.something.unique`.
+
+Apple's documentation says testing on a device needs the [Apple Developer Program](https://developer.apple.com/programs/) ($99 a year). A free Apple ID usually works for your own iPhone, but the install expires after 7 days; run it from Xcode again to renew. Xcode's iOS Simulator needs neither a paid account nor an iPhone.
+
+No Mac? With the Developer Program, you can upload the zip from `npm run package` to the Safari Web Extension Packager in [App Store Connect](https://developer.apple.com/documentation/safariservices/packaging-and-distributing-safari-web-extensions-with-app-store-connect), then install it on your iPhone through TestFlight.
+
+### Safari on a Mac
+
+- **To try it quickly:** in Safari, turn on **Settings → Advanced → Show features for web developers**. Then, in **Settings → Developer**, tick **Allow unsigned extensions**, click **Add Temporary Extension…**, and choose the `extension/` folder. Safari removes it after 24 hours or when you quit.
+- **To keep it:** in the Xcode project from step 1 above, run the **Make It Darker (macOS)** scheme, then turn it on in **Safari → Settings → Extensions**.
+
+### Chrome and Arc on iPhone
+
+Not possible. Chrome, Arc Search, Edge and Firefox on iPhone and iPad don't support extensions, so no extension can run there. iOS's **Smart Invert** (**Settings → Accessibility → Display & Text Size**) darkens every app, these browsers included, and keeps photos in their real colours. Unlike Make It Darker, it also inverts pages that are already dark.
 
 ### Set it up with an AI coding agent
 
@@ -80,9 +107,10 @@ Click the moon icon in the toolbar.
 | Browser | Status |
 | --- | --- |
 | Dia, Chrome, Edge, Brave, Arc, Vivaldi, Opera | Works as-is (Manifest V3). Tested in Chromium and Dia. |
+| Safari on iPhone, iPad and Mac | Works once wrapped in an app with Xcode ([see Install](#safari-on-iphone-and-ipad)). Checked in WebKit, Safari's engine, but not yet on a real iPhone. |
 | Firefox | Needs a small manifest change: `background.scripts` instead of `service_worker`, plus a Firefox extension ID |
-| Safari | Needs wrapping with Apple's `safari-web-extension-converter` and an Apple developer account |
-| Chrome on Android or iOS | No; it doesn't support extensions |
+| Chrome, Arc Search, Edge or Firefox on iPhone and iPad | No; they don't support extensions |
+| Chrome on Android | No; it doesn't support extensions |
 
 ## How it works
 
@@ -98,6 +126,7 @@ A content script marks `<html>` before the page first paints. `dark.css` then ap
 | Fullscreen video sits outside the page filter | Dark mode pauses while something is fullscreen |
 | A page with no background shows the browser's white canvas, which filters can't reach | It gets a white base that inverts to dark. This is forced, because LinkedIn sets `html { background: transparent }` |
 | Frameworks rewrite `<html>` attributes during hydration | A `MutationObserver` restores the attribute |
+| Safari leaves an extension's CSS off pages that have no stylesheet of their own | The manifest sets `css_origin: user`, which Safari applies to every page. Chromium ignores it. |
 
 An exact, hue-preserving SVG filter was tried first. It was dropped because Chromium redraws SVG filters on `<html>` unreliably, which left Google Sheets' menu bar and toolbar blank.
 
@@ -122,7 +151,7 @@ Both load the real extension into headless Chromium. Branded Google Chrome ignor
 
 `npm run e2e` drives the pages like a user would: it opens menus, submenus, dropdowns, context menus, dialogs, filters and job pages. At each step it screenshots with dark mode off, then on, and fails if any control, image or patch of text that was clearly visible lost most of its contrast. On each "on" screenshot, red boxes mark controls that became hard to see and orange boxes mark other content. It uses public pages only: Google's sample spreadsheet and LinkedIn's signed-out pages.
 
-`npm run icons` redraws the toolbar icons and needs Pillow.
+`npm run icons` redraws the toolbar icons and needs Pillow. `npm run safari` builds the Xcode project for Safari and needs a Mac with Xcode.
 
 ## Package for the stores
 
@@ -133,6 +162,7 @@ Both load the real extension into headless Chromium. Branded Google Chrome ignor
    - **Chrome Web Store:** a one-time $5 developer fee. This also covers Dia, Brave, Arc, Vivaldi and Opera.
    - **Edge Add-ons:** free.
    - **Firefox Add-ons:** free, after the manifest change above.
+   - **App Store (Safari on iPhone, iPad and Mac):** needs the Apple Developer Program ($99 a year). Archive the Xcode project from `npm run safari`, or upload the zip to the Safari Web Extension Packager in App Store Connect.
 
 Store installs update automatically and get a permanent extension ID.
 

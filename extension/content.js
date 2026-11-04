@@ -16,8 +16,14 @@
   // settings and the page's own styles load.
   root.setAttribute(ON, '');
 
+  // OffscreenCanvas needs Safari 16.4 or later; older Safari gets a detached <canvas>.
+  const canvas = (size) =>
+    typeof OffscreenCanvas === 'function'
+      ? new OffscreenCanvas(size, size)
+      : Object.assign(document.createElement('canvas'), { width: size, height: size });
+
   // A canvas resolves any CSS colour (rgb, hsl, oklch, named) to RGBA.
-  const ctx = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
+  const ctx = canvas(1).getContext('2d', { willReadFrequently: true });
   function read(color) {
     ctx.clearRect(0, 0, 1, 1);
     ctx.fillStyle = '#0000';
@@ -63,7 +69,7 @@
   const checked = new WeakMap(); // img -> src it was last judged on
   const pending = new WeakSet(); // imgs waiting for their first load
   const verdicts = new Map(); // src -> Promise<boolean>
-  const sample = new OffscreenCanvas(48, 48).getContext('2d', { willReadFrequently: true });
+  const sample = canvas(48).getContext('2d', { willReadFrequently: true });
 
   // Same test as background.js: more than 30% of a 48x48 sample see-through.
   function measure(img) {
