@@ -1,74 +1,87 @@
-# Dia Dark Mode
+# Make It Darker
 
-A browser extension that turns every website dark in [Dia](https://www.diabrowser.com) without hiding any of the page's controls. Pages that are already dark are left alone, and photos and videos keep their colours.
+Dark mode for every website, in [Dia](https://www.diabrowser.com) and any Chromium browser, without hiding a single button or line of text.
 
-It is a plain Manifest V3 extension with no build step and no dependencies, so it should work in any Chromium-based browser.
+## Principles
+
+1. **Tiny.** About 400 lines in total, with no dependencies and no build step. The `extension/` folder is the whole product.
+2. **Never hides anything.** Every button, menu and line of text stays readable. An automated audit of live Google Sheets and LinkedIn pages checks this.
+3. **One click.** A global switch, plus **Auto / Dark / Original** for each site. Changes apply instantly, with no reload.
+4. **Private.** No ads, no tracking and no account. Your settings never leave your browser.
 
 ## Install
 
-1. Open `chrome://extensions` in Dia.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked** and pick the `extension/` folder.
-4. Reload any tabs that were already open.
+It is not in a store yet, so load it from source:
 
-After pulling changes, click the reload arrow on the extension's card.
+1. Get the code: `git clone https://github.com/kugesh-Rajasekaran/Make-It-Darker.git`, or use **Code → Download ZIP** and unzip it.
+2. Open `chrome://extensions` (Dia, Chrome, Brave, Arc, Vivaldi) or `edge://extensions` (Edge).
+3. Turn on **Developer mode**.
+4. Click **Load unpacked** and choose the `extension/` folder.
+5. Reload any tabs that were already open.
 
-Click the moon icon to turn it off everywhere, or to set the current site to **Auto**, **Dark** or **Original**.
+To update, run `git pull` (or download again), then click the reload arrow on the extension's card. Keep the folder where it is: the browser identifies an unpacked extension by its path, so moving the folder resets your saved site choices.
+
+## Use
+
+Click the moon icon in the toolbar.
+
+| Control | What it does |
+| --- | --- |
+| Switch | Turns dark mode on or off for every site |
+| **Auto** (default) | Darkens light pages and leaves pages that are already dark alone. It re-checks on every page load. |
+| **Dark** | Always darkens this site |
+| **Original** | Never changes this site |
+
+## What it remembers
+
+```js
+{ enabled: true, sites: { "docs.google.com": "off", "www.linkedin.com": "on" } }
+```
+
+- **Choices are kept per exact hostname.** `docs.google.com` and `mail.google.com` are separate sites.
+- **Auto stores nothing.** Choosing Auto deletes the site's entry.
+- **Settings live on this device and this browser profile only.** They are kept in the extension's local storage, are not synced, and are deleted if you remove the extension.
+
+## Privacy
+
+- **Nothing to sell or watch:** no ads, analytics, accounts, or code loaded from a server.
+- **Settings stay in your browser.** They are never sent anywhere.
+- **The one network request the extension makes:** its background worker re-downloads small images that the page is already showing, without cookies. It does this to check whether an image has see-through areas, so icons don't vanish on a dark page. The result is not sent anywhere.
+- **Why it asks for access to all sites:** the browser warns that it can "read and change all your data on all websites". It needs that access to darken pages, and to read those images when they come from another domain.
+
+## Browser support
+
+| Browser | Status |
+| --- | --- |
+| Dia, Chrome, Edge, Brave, Arc, Vivaldi, Opera | Works as-is (Manifest V3). Tested in Chromium and Dia. |
+| Firefox | Needs a small manifest change: `background.scripts` instead of `service_worker`, plus a Firefox extension ID |
+| Safari | Needs wrapping with Apple's `safari-web-extension-converter` and an Apple developer account |
+| Chrome on Android or iOS | No; it doesn't support extensions |
 
 ## How it works
 
-A content script adds an attribute to `<html>` before the page renders. `dark.css` then applies `invert(1) hue-rotate(180deg) contrast(0.85)` to the whole page. That flips light and dark, rotates colours back to their own hue, and softens the result to `#131313` text backgrounds and `#ececec` text. Photos and video get the inverse filter, so they come back with their real colours.
+A content script marks `<html>` before the page first paints. `dark.css` then applies `invert(1) hue-rotate(180deg) contrast(0.85)` to the page. This flips light and dark, turns colours back to their own hue, and softens the result: white becomes `#131313` and black becomes `#ececec`. Photos and video get the inverse filter, so they keep their colours.
 
 | Problem | Fix |
 | --- | --- |
-| White flash before dark mode kicks in | Dark is applied at `document_start`, before first paint |
-| Site is already dark, so inverting makes it light | Just before first paint, the script samples the background the user actually sees; dark pages are skipped |
-| Photos and video get inverted | They get the inverse filter and come back with their colours (very saturated colours lose a little saturation) |
-| Icons drawn on transparency (a black PNG glyph) vanish when restored onto a dark page | Small images are checked for see-through pixels; those invert with the page instead. Cross-origin images are checked by the background worker, which is why the extension asks for access to all sites |
+| White flash before dark mode kicks in | Applied at `document_start`, before first paint |
+| Site is already dark, so inverting would make it light | Just before first paint, the script samples the background the user actually sees; dark pages are skipped |
+| Photos and video get inverted | They get the inverse filter (very saturated colours lose a little saturation) |
+| Icons drawn on transparency vanish when restored onto a dark page | Small images are checked for see-through pixels, and those invert with the page instead |
 | Modal dialogs and popovers render outside the page filter | They are filtered directly |
 | Fullscreen video sits outside the page filter | Dark mode pauses while something is fullscreen |
-| A page with no background shows the browser's white canvas, which filters can't reach | It gets a white base that inverts to dark, forced with `!important` because LinkedIn sets `html { background: transparent }` |
+| A page with no background shows the browser's white canvas, which filters can't reach | It gets a white base that inverts to dark. This is forced, because LinkedIn sets `html { background: transparent }` |
 | Frameworks rewrite `<html>` attributes during hydration | A `MutationObserver` restores the attribute |
 
-An exact, hue-preserving SVG filter (`out = x + 1 − max − min`) was tried first and kept photo colours perfect. It was dropped because Chromium paints SVG filters on `<html>` through a slower path that left Google Sheets' menu bar and toolbar blank until the next repaint.
-
-## Tested on Google Sheets and LinkedIn
-
-`npm run e2e` drives live Google Sheets and LinkedIn pages and checks that dark mode hides nothing. At each step it takes two screenshots, one with dark mode off and one with it on, without reloading. It then compares contrast inside every visible control, every image, and every 24 px tile of the viewport. Anything that was clearly visible before and lost most of its contrast after fails the step.
-
-Steps covered:
-
-- **Google Sheets** (Google's public sample sheet):
-  - the grid
-  - every enabled menu
-  - the File › Download submenu
-  - the zoom dropdown
-  - a selected cell
-  - the cell context menu
-  - the sheet-tab menu
-  - the find bar
-  - the keyboard-shortcuts dialog
-- **LinkedIn** (guest pages):
-  - jobs search with the sign-in dialog
-  - the "Date posted" filter
-  - opening a job
-  - scrolling the job list
-  - the sign-in page
-  - a public job page
-  - the home page
-
-Screenshots go to `$TMPDIR/dia-dark-e2e` unless you pass a folder. On each "on" image, red boxes mark controls or images that became hard to see and orange boxes mark other content that did.
-
-Signed-in pages (an editable sheet, the LinkedIn feed and messaging) are not covered yet.
+An exact, hue-preserving SVG filter was tried first. It was dropped because Chromium redraws SVG filters on `<html>` unreliably, which left Google Sheets' menu bar and toolbar blank.
 
 ## Known limits
 
-- Background images set in stylesheets (not inline) get inverted. Set the site to **Original** if that looks wrong.
-- `<canvas>` is not restored: canvas-drawn documents such as Google Sheets go dark, but photo or game canvases invert.
-- A dark logo keeps its colours, so its square outline can blend into the dark page (the logo itself stays visible).
-- Iframes are left as they are, so a light embed stays light.
-- Browser pages (`chrome://`, the Web Store, the PDF viewer) can't be changed by any extension.
-- Dia's own sidebar and chat are part of the browser, not the page, so they are unaffected.
+- **Stylesheet background images** (not inline ones) get inverted. Set the site to **Original** if that looks wrong.
+- **`<canvas>`** is not restored. Canvas-drawn apps such as Google Sheets go dark, but photo or game canvases invert.
+- **Dark logos** keep their colours, so a logo's square outline can blend into the dark page. The logo itself stays visible.
+- **Embedded frames** are left as they are, so a light embed stays light.
+- **Browser pages** (`chrome://`, the Web Store, the PDF viewer) can't be changed by any extension.
 
 ## Develop
 
@@ -81,7 +94,21 @@ npm run e2e -- ./e2e-out          # live Google Sheets and LinkedIn (needs netwo
 
 Both load the real extension into headless Chromium. Branded Google Chrome ignores `--load-extension`, so use Chromium or Chrome for Testing.
 
+`npm run e2e` drives the pages like a user would: it opens menus, submenus, dropdowns, context menus, dialogs, filters and job pages. At each step it screenshots with dark mode off, then on, and fails if any control, image or patch of text that was clearly visible lost most of its contrast. On each "on" screenshot, red boxes mark controls that became hard to see and orange boxes mark other content. It uses public pages only: Google's sample spreadsheet and LinkedIn's signed-out pages.
+
 `npm run icons` redraws the toolbar icons and needs Pillow.
+
+## Package for the stores
+
+1. Bump `version` in `extension/manifest.json`.
+2. Run `npm test` and `npm run e2e`.
+3. Run `npm run package` to create `make-it-darker.zip`, which contains only the `extension/` folder.
+4. Upload the zip:
+   - **Chrome Web Store:** a one-time $5 developer fee. This also covers Dia, Brave, Arc, Vivaldi and Opera.
+   - **Edge Add-ons:** free.
+   - **Firefox Add-ons:** free, after the manifest change above.
+
+Store installs update automatically and get a permanent extension ID.
 
 ## Licence
 
