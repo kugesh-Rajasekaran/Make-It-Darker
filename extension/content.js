@@ -115,12 +115,78 @@
     else for (const img of node.getElementsByTagName('img')) check(img);
   }
 
+  // An iframe that is part of the site (an app shell that loads its pages in a
+  // frame) must darken with the page. Restored like a video, it shows its
+  // original colours, and where it is see-through the backdrop behind it is
+  // now dark: dark text on dark. Same origin or most of the screen = the site;
+  // anything else (videos, maps, ads) keeps its real colours.
+  const FRAME = 'data-dia-dark-frame';
+  const framesSeen = new WeakSet();
+  function checkFrame(frame) {
+    if (!framesSeen.has(frame)) {
+      framesSeen.add(frame);
+      frame.addEventListener('load', () => checkFrame(frame)); // it may navigate cross-origin
+    }
+    const r = frame.getBoundingClientRect();
+    const sameSite = Boolean(frame.contentDocument); // null when cross-origin
+    frame.toggleAttribute(FRAME, sameSite || r.width * r.height > 0.5 * innerWidth * innerHeight);
+  }
+
+  // Large areas the site already paints dark (brand bars, heroes, sidebars)
+  // would flip to light. dark.css shows the ones marked here as designed.
+  // Only opaque paint counts, so a see-through overlay is left alone and the
+  // dialog on it still darkens. An area mostly covered by a light child (a
+  // dark frame around a white app) is not kept, or the white would come back.
+  const KEEP = 'data-dia-dark-keep';
+  const COLOR = /(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)|#[0-9a-f]{3,8}\b|transparent/gi;
+  function tone(el) {
+    const cs = getComputedStyle(el);
+    const stops = cs.backgroundImage.includes('gradient') ? (cs.backgroundImage.match(COLOR) || []).map(read) : [];
+    const paint = stops.length && stops.every((c) => c.alpha >= 0.9) ? stops : [read(cs.backgroundColor)];
+    if (paint.some((c) => c.alpha < 0.9)) return null;
+    if (paint.every((c) => c.light < 0.35)) return 'dark';
+    return paint.every((c) => c.light > 0.6) ? 'light' : null;
+  }
+
+  function findDarkAreas() {
+    const min = 0.04 * innerWidth * innerHeight;
+    const dark = [];
+    const light = [];
+    for (const el of document.body?.getElementsByTagName('*') ?? []) {
+      const r = el.getBoundingClientRect();
+      const area = r.width * r.height;
+      if (area < min / 2 || Math.min(r.width, r.height) < 32) continue;
+      const t = tone(el);
+      if (t) (t === 'dark' ? dark : light).push({ el, area });
+    }
+    const keep = new Set(
+      dark
+        .filter((d) => d.area >= min && !light.some((l) => l.area > d.area / 2 && d.el.contains(l.el)))
+        .map((d) => d.el),
+    );
+    for (const el of document.querySelectorAll(`[${KEEP}]`)) if (!keep.has(el)) el.removeAttribute(KEEP);
+    for (const el of keep) el.setAttribute(KEEP, '');
+    for (const frame of document.getElementsByTagName('iframe')) checkFrame(frame);
+  }
+
+  // Pages keep changing after load (single-page apps, carousels): look again,
+  // at most twice a second.
+  let areasTimer = 0;
+  const scheduleAreas = () => {
+    areasTimer ||= setTimeout(() => {
+      areasTimer = 0;
+      if (root.hasAttribute(ON)) findDarkAreas();
+    }, 500);
+  };
+  addEventListener('resize', scheduleAreas);
+
   new MutationObserver((records) => {
     if (!root.hasAttribute(ON)) return;
     for (const r of records) {
       if (r.type === 'attributes') r.target.tagName === 'IMG' && check(r.target);
       else for (const n of r.addedNodes) scan(n);
     }
+    scheduleAreas();
   }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'srcset'] });
 
   function apply() {
@@ -129,7 +195,10 @@
     const bodyClear = !document.body || background(document.body).alpha === 0;
     const rootClear = root.hasAttribute(BG) || background(root).alpha === 0;
     root.toggleAttribute(BG, on && bodyClear && rootClear);
-    if (on) scan(root);
+    if (on) {
+      scan(root);
+      findDarkAreas();
+    }
   }
 
   function refresh() {

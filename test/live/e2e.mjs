@@ -1,9 +1,10 @@
-// End-to-end visibility run against live Google Sheets and LinkedIn.
+// End-to-end visibility run against live Google Sheets, LinkedIn and OVHcloud.
 //
 //   node test/live/e2e.mjs [outDir] [--headed]
 //
 // Needs network. Uses public pages only (no sign-in): Google's public sample
-// spreadsheet and LinkedIn's guest pages. Writes off/on screenshots for every
+// spreadsheet, LinkedIn's guest pages and OVHcloud's home page (a light page
+// with dark brand areas that must stay dark). Writes off/on screenshots for every
 // step to outDir; on the "on" image, red boxes mark controls that became hard to
 // see and orange boxes mark any other content that did.
 import { writeFile } from 'node:fs/promises';
@@ -194,6 +195,17 @@ const visibleMenu = (page) => page.locator('.goog-menu:visible').first();
     await settle(page, 2500);
     await blocked();
   });
+  await page.close();
+}
+
+// ---- OVHcloud (light page with dark brand bars and hero) -----------------
+{
+  const page = await context.newPage();
+  await page.goto('https://www.ovhcloud.com/en-in/', { waitUntil: 'load' });
+  await settle(page, 2500);
+  // The cookie banner covers the page; take it away rather than consenting.
+  await page.evaluate(() => document.querySelector('.cmp')?.remove());
+  await step(page, 'ovhcloud: home page', () => settle(page, 1000));
   await page.close();
 }
 

@@ -4,8 +4,8 @@ Dark mode for every website, in [Dia](https://www.diabrowser.com) and any Chromi
 
 ## Principles
 
-1. **Tiny.** About 400 lines in total, with no dependencies and no build step. The `extension/` folder is the whole product.
-2. **Never hides anything.** Every button, menu and line of text stays readable. An automated audit of live Google Sheets and LinkedIn pages checks this.
+1. **Tiny.** Under 500 lines in total, with no dependencies and no build step. The `extension/` folder is the whole product.
+2. **Never hides anything.** Every button, menu and line of text stays readable. An automated audit of live Google Sheets, LinkedIn and OVHcloud pages checks this.
 3. **One click.** A global switch, plus **Auto / Dark / Original** for each site. Changes apply instantly, with no reload.
 4. **Private.** No ads, no tracking and no account. Your settings never leave your browser.
 
@@ -37,7 +37,7 @@ https://github.com/kugesh-Rajasekaran/Make-It-Darker so I can use and test it.
    branded Google Chrome will not load an extension from the command line.
 5. Run `npm test` and confirm every test passes. If any fail, show me the failing
    test names and errors; do not edit code to make them pass.
-6. Do not run `npm run e2e` unless I ask. It opens live Google Sheets and LinkedIn
+6. Do not run `npm run e2e` unless I ask. It opens live Google Sheets, LinkedIn and OVHcloud
    pages, and LinkedIn rate-limits repeated runs.
 7. Do not modify, commit or push any files.
 
@@ -94,6 +94,8 @@ A content script marks `<html>` before the page first paints. `dark.css` then ap
 | Site is already dark, so inverting would make it light | Just before first paint, the script samples the background the user actually sees; dark pages are skipped |
 | Photos and video get inverted | They get the inverse filter (very saturated colours lose a little saturation) |
 | Icons drawn on transparency vanish when restored onto a dark page | Small images are checked for see-through pixels, and those invert with the page instead |
+| Parts the site already paints dark (brand bars, heroes, sidebars) turn light | Large areas with an opaque dark background colour or gradient get the inverse filter, so they stay dark. An area mostly covered by a light child is skipped, so a white app inside a dark frame still darkens |
+| Apps that load their pages in an iframe (OVHcloud's control panel) show original colours over a now-dark backdrop: dark text on dark | Iframes from the same site, or covering most of the screen, darken with the page; only other embeds (videos, maps) keep their colours |
 | Modal dialogs and popovers render outside the page filter | They are filtered directly |
 | Fullscreen video sits outside the page filter | Dark mode pauses while something is fullscreen |
 | A page with no background shows the browser's white canvas, which filters can't reach | It gets a white base that inverts to dark. This is forced, because LinkedIn sets `html { background: transparent }` |
@@ -106,7 +108,8 @@ An exact, hue-preserving SVG filter was tried first. It was dropped because Chro
 - **Stylesheet background images** (not inline ones) get inverted. Set the site to **Original** if that looks wrong.
 - **`<canvas>`** is not restored. Canvas-drawn apps such as Google Sheets go dark, but photo or game canvases invert.
 - **Dark logos** keep their colours, so a logo's square outline can blend into the dark page. The logo itself stays visible.
-- **Embedded frames** are left as they are, so a light embed stays light.
+- **Embedded frames from other sites** (videos, maps) are left as they are, so a light embed stays light.
+- **Saturated dark colours lose some saturation** when kept dark: OVHcloud's bright brand blue comes back as a muted dark navy.
 - **Browser pages** (`chrome://`, the Web Store, the PDF viewer) can't be changed by any extension.
 
 ## Develop
@@ -115,12 +118,12 @@ An exact, hue-preserving SVG filter was tried first. It was dropped because Chro
 npm install
 npx playwright install chromium   # or set CHROMIUM_PATH to a Chromium build
 npm test                          # local pages, pixel checks
-npm run e2e -- ./e2e-out          # live Google Sheets and LinkedIn (needs network)
+npm run e2e -- ./e2e-out          # live Google Sheets, LinkedIn and OVHcloud (needs network)
 ```
 
 Both load the real extension into headless Chromium. Branded Google Chrome ignores `--load-extension`, so use Chromium or Chrome for Testing.
 
-`npm run e2e` drives the pages like a user would: it opens menus, submenus, dropdowns, context menus, dialogs, filters and job pages. At each step it screenshots with dark mode off, then on, and fails if any control, image or patch of text that was clearly visible lost most of its contrast. On each "on" screenshot, red boxes mark controls that became hard to see and orange boxes mark other content. It uses public pages only: Google's sample spreadsheet and LinkedIn's signed-out pages.
+`npm run e2e` drives the pages like a user would: it opens menus, submenus, dropdowns, context menus, dialogs, filters and job pages. At each step it screenshots with dark mode off, then on, and fails if any control, image or patch of text that was clearly visible lost most of its contrast. On each "on" screenshot, red boxes mark controls that became hard to see and orange boxes mark other content. It uses public pages only: Google's sample spreadsheet, LinkedIn's signed-out pages and OVHcloud's home page.
 
 `npm run icons` redraws the toolbar icons and needs Pillow.
 

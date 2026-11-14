@@ -17,23 +17,33 @@ html[data-dia-dark] {
 
 /*
  * Media must look like media, so apply the inverse; the two cancel (very
- * saturated colours lose a little saturation). Anything inside an inline
- * background image is already restored by its parent.
+ * saturated colours lose a little saturation). Anything inside an element
+ * that is already restored stays as its parent leaves it.
  *
  * Images with see-through areas are left inverted with the page: they sit on
  * the page's own background, which is inverted, so restoring them would put a
  * black icon on a black page. SVG images are assumed to be like that;
  * content.js measures the others and marks them data-dia-dark-glyph.
+ *
+ * content.js also marks:
+ *   data-dia-dark-frame  iframes that are part of the site (same origin, or
+ *                        most of the screen). They darken with the page;
+ *                        restored, their content would show its original
+ *                        colours over a backdrop that is now dark.
+ *   data-dia-dark-keep   large areas the site already paints dark (brand
+ *                        bars, heroes, sidebars). Shown as designed instead
+ *                        of being flipped to light.
  */
 html[data-dia-dark]
   :is(
     img:not([src*=".svg" i], [src^="data:image/svg" i], [data-dia-dark-glyph]),
     video,
-    iframe,
+    iframe:not([data-dia-dark-frame]),
     embed,
     object,
-    [style*="url(" i]
-  ):not([style*="url(" i] *) {
+    [style*="url(" i],
+    [data-dia-dark-keep]
+  ):not([style*="url(" i] *, [data-dia-dark-keep] *) {
   filter: contrast(1.1765) hue-rotate(180deg) invert(1) !important;
 }
 
