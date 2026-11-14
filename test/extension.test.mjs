@@ -38,6 +38,13 @@ const PAGES = {
     <div style="background:#d03030;width:100px;height:100px"></div>${tall}`,
   '/fixed': `<style>body{background:#fff}</style>
     <div id=bar style="position:fixed;top:0;left:0;right:0;height:40px;background:#eee"></div>${tall}`,
+  '/dark-band': `<style>body{margin:0;background:#fff}</style>
+    <header style="background:linear-gradient(to right,#0d1df6,#010d33);height:120px;color:#fff">Brand</header>${tall}`,
+  '/dark-frame': `<style>body{margin:0;background:#fff}</style>
+    <div style="background:#111;padding:20px"><div style="background:#fff;height:300px">App</div></div>${tall}`,
+  '/app-frame': `<style>body{margin:0;background:#fff}iframe{border:0;width:600px;height:600px}</style>
+    <iframe srcdoc="<body style='margin:0'><div style='background:#fff;height:200px'></div><h1 style='color:#001191'>Welcome</h1></body>"></iframe>`,
+  '/red': `<style>body{margin:0;background:#d03030}</style>`,
   '/dialog': `<style>body{background:#fff}dialog{background:#fff;width:200px;height:120px;border:0}</style>
     <dialog id=d>Modal</dialog><script>d.showModal()</script>`,
 };
@@ -62,6 +69,11 @@ before(async () => {
     if (req.url === '/glyph.png') {
       res.writeHead(200, { 'content-type': 'image/png' });
       return res.end(GLYPH_PNG);
+    }
+    if (req.url === '/video-frame') {
+      const src = `http://localhost:${server.address().port}/red`;
+      res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end(`<!doctype html><html><body style="margin:0;background:#fff"><iframe src="${src}" style="border:0;width:200px;height:150px"></iframe></body></html>`);
     }
     if (req.url === '/icon-cross-origin') {
       const src = `http://localhost:${server.address().port}/glyph.png`;
@@ -183,6 +195,48 @@ test('accent colours keep their hue', async () => {
   const [r, g, b] = await pixel(page, 50, 50);
   // A light page's red button should still read as red (lighter is fine), not cyan or grey.
   assert.ok(r - g > 60 && r - b > 60, `got rgb(${r}, ${g}, ${b})`);
+  await page.close();
+});
+
+test('areas the site already paints dark stay dark', async () => {
+  await setSettings({});
+  const page = await open('/dark-band');
+  assert.equal(await isDarkened(page), true);
+  // Left end of the gradient, #0d1df6. Restoring loses some saturation (about
+  // rgb(44, 54, 89)); it must stay a dark blue, not flip to light lavender.
+  const [r, g, b] = await pixel(page, 20, 60);
+  assert.ok(Math.max(r, g, b) < 130 && b - r > 25, `band should stay dark blue, got rgb(${r}, ${g}, ${b})`);
+  assert.ok(looksDark(await pixel(page, 300, 400)), 'the rest of the page should still be dark');
+  await page.close();
+});
+
+test('a dark frame around a white app does not bring the white back', async () => {
+  await setSettings({});
+  const page = await open('/dark-frame');
+  assert.ok(looksDark(await pixel(page, 300, 150)), 'white panel should render dark');
+  await page.close();
+});
+
+test('same-site iframe darkens with the page', async () => {
+  await setSettings({});
+  const page = await open('/app-frame');
+  await page.waitForTimeout(300);
+  assert.ok(looksDark(await pixel(page, 300, 100)), 'white card inside the frame should render dark');
+  // The navy heading sits on the frame's see-through part: it must turn light, not stay navy on black.
+  const h = await page.frames()[1].evaluate(() => document.querySelector('h1').getBoundingClientRect().toJSON());
+  const shot = PNG.sync.read(await page.screenshot({ clip: { x: h.x, y: h.y, width: 150, height: h.height } }));
+  let brightest = 0;
+  for (let i = 0; i < shot.data.length; i += 4) brightest = Math.max(brightest, shot.data[i], shot.data[i + 1], shot.data[i + 2]);
+  assert.ok(brightest > 150, `heading should be light on the dark page, brightest channel ${brightest}`);
+  await page.close();
+});
+
+test('cross-origin embeds keep their colours', async () => {
+  await setSettings({});
+  const page = await open('/video-frame');
+  await page.waitForTimeout(500);
+  const [r, g, b] = await pixel(page, 100, 75);
+  assert.ok(r - g > 80 && r - b > 80, `embed should stay red, got rgb(${r}, ${g}, ${b})`);
   await page.close();
 });
 
