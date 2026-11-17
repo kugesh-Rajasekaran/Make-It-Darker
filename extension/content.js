@@ -1,5 +1,5 @@
-// Runs at document_start in every top-level page. Decides whether the page
-// should be dark and flips the attributes that dark.css keys off.
+// Runs at document_start in every page. The top page decides whether to go dark
+// and sets the attributes dark.css keys off; an iframe only reports its tone.
 (() => {
   const ON = 'data-dia-dark';
   const BG = 'data-dia-dark-bg';
@@ -11,10 +11,6 @@
 
   let settings = DEFAULTS;
   let pageIsDark = false;
-
-  // Most pages are light. Start dark so there is no white flash while the
-  // settings and the page's own styles load.
-  root.setAttribute(ON, '');
 
   // A canvas resolves any CSS colour (rgb, hsl, oklch, named) to RGBA.
   const ctx = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
@@ -43,21 +39,30 @@
     return read(getComputedStyle(document.body || root).color).light > 0.6;
   }
 
+  // An iframe is darkened by the top page's filter, never by itself. It tells
+  // its parent whether its page is light (darken it) or dark (keep it, e.g. video).
+  if (window !== top) {
+    const report = () => parent.postMessage({ makeItDarkerFrame: detectDark() ? 'dark' : 'light' }, '*');
+    document.addEventListener('DOMContentLoaded', report, { once: true });
+    addEventListener('load', report, { once: true });
+    return;
+  }
+
+  // Most pages are light: start dark so there is no white flash while loading.
+  root.setAttribute(ON, '');
+
   function wanted() {
     if (!settings.enabled) return false;
-    // Fullscreen content (usually video) sits outside the page filter. Show
-    // it untouched instead of half-inverted.
+    // Fullscreen content sits outside the page filter: show it untouched.
     const fs = document.fullscreenElement;
     if (fs && fs !== root) return false;
     const mode = settings.sites[host];
     return mode === 'on' || (mode !== 'off' && !pageIsDark);
   }
 
-  // Images with see-through areas (icons, glyphs, logos on transparency) sit
-  // on the page's background, which the filter inverts. They must invert with
-  // it or they vanish (a black icon on a now-black page). Only opaque images
-  // such as photos keep their real colours. Small images only: that is where
-  // icons live, and it bounds the work.
+  // Images with see-through areas (icons, logos) sit on the inverted page
+  // background, so they must invert with it or vanish (black icon on black).
+  // Only opaque images such as photos keep their colours. Small images only.
   const GLYPH = 'data-dia-dark-glyph';
   const ICON_MAX = 160;
   const checked = new WeakMap(); // img -> src it was last judged on
@@ -81,8 +86,7 @@
       try {
         verdict = Promise.resolve(measure(img));
       } catch {
-        // Cross-origin: ask the background worker. Wrapped so a stale tab
-        // (extension reloaded under it) gets "no" instead of throwing.
+        // Cross-origin: ask the background worker ("no" if the tab is stale).
         verdict = Promise.resolve()
           .then(() => chrome.runtime.sendMessage({ type: 'see-through', src }))
           .catch(() => false);
@@ -115,28 +119,35 @@
     else for (const img of node.getElementsByTagName('img')) check(img);
   }
 
-  // An iframe that is part of the site (an app shell that loads its pages in a
-  // frame) must darken with the page. Restored like a video, it shows its
-  // original colours, and where it is see-through the backdrop behind it is
-  // now dark: dark text on dark. Same origin or most of the screen = the site;
-  // anything else (videos, maps, ads) keeps its real colours.
+  // An iframe whose page is light (an app's page, a payment form) darkens with
+  // the page; restored like a video it would stay white. Frames report their
+  // tone; a silent one (sandboxed) darkens if same origin or most of the screen.
   const FRAME = 'data-dia-dark-frame';
   const framesSeen = new WeakSet();
+  const frameTone = new WeakMap(); // iframe -> 'light' | 'dark', as it reported
   function checkFrame(frame) {
     if (!framesSeen.has(frame)) {
       framesSeen.add(frame);
-      frame.addEventListener('load', () => checkFrame(frame)); // it may navigate cross-origin
+      frame.addEventListener('load', () => checkFrame(frame)); // it may navigate
     }
+    const tone = frameTone.get(frame);
     const r = frame.getBoundingClientRect();
-    const sameSite = Boolean(frame.contentDocument); // null when cross-origin
-    frame.toggleAttribute(FRAME, sameSite || r.width * r.height > 0.5 * innerWidth * innerHeight);
+    const guess = Boolean(frame.contentDocument) || r.width * r.height > 0.5 * innerWidth * innerHeight;
+    frame.toggleAttribute(FRAME, tone ? tone === 'light' : guess);
   }
+  addEventListener('message', (e) => {
+    const tone = e.data?.makeItDarkerFrame;
+    if (tone !== 'light' && tone !== 'dark') return;
+    for (const frame of document.getElementsByTagName('iframe')) {
+      if (frame.contentWindow !== e.source) continue;
+      frameTone.set(frame, tone);
+      checkFrame(frame);
+    }
+  });
 
-  // Large areas the site already paints dark (brand bars, heroes, sidebars)
-  // would flip to light. dark.css shows the ones marked here as designed.
-  // Only opaque paint counts, so a see-through overlay is left alone and the
-  // dialog on it still darkens. An area mostly covered by a light child (a
-  // dark frame around a white app) is not kept, or the white would come back.
+  // Large areas the site already paints dark (bars, heroes, sidebars) would flip
+  // to light; dark.css shows marked ones as designed. Opaque paint only, and not
+  // when mostly covered by a light child, or the white would come back.
   const KEEP = 'data-dia-dark-keep';
   const COLOR = /(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)|#[0-9a-f]{3,8}\b|transparent/gi;
   function tone(el) {
@@ -206,8 +217,7 @@
     apply();
   }
 
-  // The first frame runs just before first paint, once head stylesheets have
-  // loaded, so a dark page is caught before it ever shows inverted.
+  // The first frame runs before first paint, so a dark page never shows inverted.
   requestAnimationFrame(refresh);
   document.addEventListener('DOMContentLoaded', refresh, { once: true });
   addEventListener('load', refresh, { once: true });

@@ -45,6 +45,7 @@ const PAGES = {
   '/app-frame': `<style>body{margin:0;background:#fff}iframe{border:0;width:600px;height:600px}</style>
     <iframe srcdoc="<body style='margin:0'><div style='background:#fff;height:200px'></div><h1 style='color:#001191'>Welcome</h1></body>"></iframe>`,
   '/red': `<style>body{margin:0;background:#d03030}</style>`,
+  '/form': `<style>body{margin:0;background:#fff;color:#222}</style><p>Payment method</p>`,
   '/dialog': `<style>body{background:#fff}dialog{background:#fff;width:200px;height:120px;border:0}</style>
     <dialog id=d>Modal</dialog><script>d.showModal()</script>`,
 };
@@ -74,6 +75,11 @@ before(async () => {
       const src = `http://localhost:${server.address().port}/red`;
       res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(`<!doctype html><html><body style="margin:0;background:#fff"><iframe src="${src}" style="border:0;width:200px;height:150px"></iframe></body></html>`);
+    }
+    if (req.url === '/pay-frame') {
+      const src = `http://localhost:${server.address().port}/form`;
+      res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end(`<!doctype html><html><body style="margin:0;background:#fff"><iframe src="${src}" style="border:0;width:300px;height:200px"></iframe></body></html>`);
     }
     if (req.url === '/icon-cross-origin') {
       const src = `http://localhost:${server.address().port}/glyph.png`;
@@ -228,6 +234,14 @@ test('same-site iframe darkens with the page', async () => {
   let brightest = 0;
   for (let i = 0; i < shot.data.length; i += 4) brightest = Math.max(brightest, shot.data[i], shot.data[i + 1], shot.data[i + 2]);
   assert.ok(brightest > 150, `heading should be light on the dark page, brightest channel ${brightest}`);
+  await page.close();
+});
+
+test('cross-origin light iframe (a payment form) darkens with the page', async () => {
+  await setSettings({});
+  const page = await open('/pay-frame');
+  await page.waitForTimeout(500);
+  assert.ok(looksDark(await pixel(page, 150, 150)), 'white form inside the frame should render dark');
   await page.close();
 });
 
