@@ -95,7 +95,7 @@ A content script marks `<html>` before the page first paints. `dark.css` then ap
 | Photos and video get inverted | They get the inverse filter (very saturated colours lose a little saturation) |
 | Icons drawn on transparency vanish when restored onto a dark page | Small images are checked for see-through pixels, and those invert with the page instead |
 | Parts the site already paints dark (brand bars, heroes, sidebars) turn light | Large areas with an opaque dark background colour or gradient get the inverse filter, so they stay dark. An area mostly covered by a light child is skipped, so a white app inside a dark frame still darkens |
-| Apps that load their pages in an iframe (OVHcloud's control panel) show original colours over a now-dark backdrop: dark text on dark | Iframes from the same site, or covering most of the screen, darken with the page; only other embeds (videos, maps) keep their colours |
+| Iframes that are part of the page (OVHcloud's control panel, Google's payment form on Workspace checkout) stay white, or show dark text over a now-dark backdrop | The script also runs inside every iframe, but only to report whether that frame's page is light or dark. Light frames darken with the page; dark ones (video players) keep their colours. A frame that can't report darkens if it is same-origin or covers most of the screen |
 | Modal dialogs and popovers render outside the page filter | They are filtered directly |
 | Fullscreen video sits outside the page filter | Dark mode pauses while something is fullscreen |
 | A page with no background shows the browser's white canvas, which filters can't reach | It gets a white base that inverts to dark. This is forced, because LinkedIn sets `html { background: transparent }` |
@@ -108,7 +108,7 @@ An exact, hue-preserving SVG filter was tried first. It was dropped because Chro
 - **Stylesheet background images** (not inline ones) get inverted. Set the site to **Original** if that looks wrong.
 - **`<canvas>`** is not restored. Canvas-drawn apps such as Google Sheets go dark, but photo or game canvases invert.
 - **Dark logos** keep their colours, so a logo's square outline can blend into the dark page. The logo itself stays visible.
-- **Embedded frames from other sites** (videos, maps) are left as they are, so a light embed stays light.
+- **Light embeds full of photos** (some ads) darken with the page, so their photos look like negatives.
 - **Saturated dark colours lose some saturation** when kept dark: OVHcloud's bright brand blue comes back as a muted dark navy.
 - **Browser pages** (`chrome://`, the Web Store, the PDF viewer) can't be changed by any extension.
 

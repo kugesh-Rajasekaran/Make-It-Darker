@@ -5,11 +5,8 @@
  * The page filter inverts, rotates hues back so colours keep their identity,
  * then softens: white becomes #131313 and black becomes #ececec.
  *
- * These are plain CSS filter functions on purpose. An exact hue-preserving SVG
- * filter (url(#...)) keeps photo colours perfect, but Chromium paints SVG
- * reference filters on <html> through a slower path that left Google Sheets'
- * menu bar and toolbar blank until the next repaint. Visible controls matter
- * more than perfect photo saturation.
+ * Plain CSS functions on purpose: an exact SVG filter on <html> left Google
+ * Sheets' menu bar and toolbar blank until the next repaint.
  */
 html[data-dia-dark] {
   filter: invert(1) hue-rotate(180deg) contrast(0.85) !important;
@@ -25,14 +22,9 @@ html[data-dia-dark] {
  * black icon on a black page. SVG images are assumed to be like that;
  * content.js measures the others and marks them data-dia-dark-glyph.
  *
- * content.js also marks:
- *   data-dia-dark-frame  iframes that are part of the site (same origin, or
- *                        most of the screen). They darken with the page;
- *                        restored, their content would show its original
- *                        colours over a backdrop that is now dark.
- *   data-dia-dark-keep   large areas the site already paints dark (brand
- *                        bars, heroes, sidebars). Shown as designed instead
- *                        of being flipped to light.
+ * content.js also marks iframes whose page is light (data-dia-dark-frame:
+ * they darken with the page) and large areas the site already paints dark
+ * (data-dia-dark-keep: shown as designed, not flipped to light).
  */
 html[data-dia-dark]
   :is(
